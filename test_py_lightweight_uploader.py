@@ -10,7 +10,7 @@ from logging import debug, info, warning, critical
 from os.path import getsize
 from mock import Mock, MagicMock, patch
 from patched_unittest2 import *
-from socket import gethostname
+from random import randint
 
 import py_lightweight_uploader
 
@@ -19,13 +19,13 @@ class TestUploadableFile(PatchedTestCase): pass
 @TestUploadableFile.patch('py_lightweight_uploader.info', spec=info)
 @TestUploadableFile.patch('py_lightweight_uploader.warning', spec=warning)
 @TestUploadableFile.patch('py_lightweight_uploader.critical', spec=critical)
-@TestUploadableFile.patch('py_lightweight_uploader.gethostname', spec=gethostname)
 @TestUploadableFile.patch('py_lightweight_uploader.getsize', spec=getsize)
 @TestUploadableFile.patch('py_lightweight_uploader.open', create=True)
+@TestUploadableFile.patch('py_lightweight_uploader.randint', spec=randint)
 class TestUploadableFile(PatchedTestCase):
 
     def postSetUpPreRun(self):
-        self.mock_gethostname.return_value = 'fake_hostname'
+        self.mock_randint.return_value = 6543217
         self.mock_getsize.return_value = 123456
         self.mock_open.return_value = MagicMock(spec=file)
         self.mock_http_connection = Mock(spec=HTTPConnection)
@@ -42,7 +42,7 @@ class TestUploadableFile(PatchedTestCase):
 
     def test_post_next_chunk_testing_first_step(self):
         self.mock_response.status = 201
-        self.mock_response.getheader.return_value = 'bytes 0-1234/123456'
+        self.mock_response.getheader.return_value = '0-1234/123456'
 
         self.target.post_next_chunk()
 
@@ -62,7 +62,7 @@ class TestUploadableFile(PatchedTestCase):
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
-                           'Session-ID': 'fake_hostname_fake_desination_url%2Ffake_file_name.txt',
+                           'Session-ID': 6543217,
                            'X-Content-Range': 'bytes 0-5119/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])
@@ -72,7 +72,7 @@ class TestUploadableFile(PatchedTestCase):
     def test_post_next_chunk_testing_second_step(self):
         self.target.last_byte_uploaded = 10000
         self.mock_response.status = 201
-        self.mock_response.getheader.return_value = 'bytes 0-15119/123456'
+        self.mock_response.getheader.return_value = '0-15119/123456'
         self.target.post_next_chunk()
         self.assertEquals(15119, self.target.last_byte_uploaded)
 
@@ -86,7 +86,7 @@ class TestUploadableFile(PatchedTestCase):
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
-                           'Session-ID': 'fake_hostname_fake_desination_url%2Ffake_file_name.txt',
+                           'Session-ID': 6543217,
                            'X-Content-Range': 'bytes 10000-15119/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])
@@ -96,7 +96,7 @@ class TestUploadableFile(PatchedTestCase):
     def test_post_next_chunk_testing_final_step(self):
         self.target.last_byte_uploaded = 123450
         self.mock_response.status = 200
-        self.mock_response.getheader.return_value = 'bytes 0-1234/123456'
+        self.mock_response.getheader.return_value = '0-1234/123456'
         self.target.post_next_chunk()
         self.assertEquals(123456, self.target.last_byte_uploaded)
 
@@ -110,7 +110,7 @@ class TestUploadableFile(PatchedTestCase):
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
-                           'Session-ID': 'fake_hostname_fake_desination_url%2Ffake_file_name.txt',
+                           'Session-ID': 6543217,
                            'X-Content-Range': 'bytes 123450-123456/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])

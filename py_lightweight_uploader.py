@@ -3,9 +3,9 @@
 from httplib import HTTPConnection
 from logging import debug, info, warning, critical
 from mimetypes import guess_type
-from os.path import getsize, join as path_join
+from os.path import getsize
+from random import randint
 import re
-from socket import gethostname
 from threading import Thread, Lock
 from time import sleep
 from urllib import quote_plus
@@ -24,7 +24,7 @@ __vcs_id__ = '$Id$'
 # In that case, we ignore the subsequent segments and simply find the first
 # MISSING segment. This doesn't necessarily mean we will re-upload anything,
 # since, after uploading the first missing segment, we check again.
-RECEIVED_RANGE_PATTERN = re.compile(r'^bytes 0-(?P<last_byte_received>\d+)')
+RECEIVED_RANGE_PATTERN = re.compile(r'^0-(?P<last_byte_received>\d+)')
 
 class UploadQueueEntry(object):
     def __init__(self, id, file):
@@ -113,7 +113,6 @@ class LightweightUploader(Thread):
 
     def run(self):
         while True:
-            debug('Top of run loop')
             self.lock.acquire(True)
             if len(self.upload_queue) < 1:
                 self.lock.release()
@@ -121,7 +120,6 @@ class LightweightUploader(Thread):
                 sleep(0.1)
                 continue
             try:
-                debug('Uploading a chunk.')
                 top_of_queue = self.upload_queue[0].file
                 r = top_of_queue.post_next_chunk()
                 if 0 == r:  # finished uploading. Yay!
@@ -157,20 +155,19 @@ class UploadableFile(object):
     @property
     def session_id(self):
         """
-        Unlike a typical session_id, where good entropy is critical to security, our goal here is repeatability.
-        We don't want to cache stuff on disk, so, we'll use a very predictable session_id of hostname_filename
-        We rely on the SSL certs for security.
+        It appears that this must be numeric. Reference implementation does:
+        Math.round(Math.random() * 100000000);
+        So clearly, not resumable across multiple sessions, unless we persist session_id to disk...
         """
         if self._session_id is None:
-            from os.path import split
-            (head, tail) = split(self.file_name)
-            self._session_id = '%s_%s' % (gethostname(), path_join(self.destination_url, tail))
+            self._session_id = randint(0, 100000000)
         return self._session_id
 
     @property
     def file_type(self):
         if self._file_type is None:
             self._file_type = guess_type(self.file_name)[0] or 'application/octet-stream'
+            debug('guessing file type: %s', self._file_type)
         return self._file_type
 
     @property
@@ -201,7 +198,7 @@ class UploadableFile(object):
             'Content-Disposition': 'attachment; filename="%s"' % quote_plus(tail),
             'Content-Type': self.file_type,
             'X-Content-Range': range,
-            'Session-ID': quote_plus(self.session_id),
+            'Session-ID': self.session_id,
         }
 
         debug('Sending %s %s', tail, range)
