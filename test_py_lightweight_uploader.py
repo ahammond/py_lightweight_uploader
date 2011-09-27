@@ -31,7 +31,7 @@ class TestUploadableFile(PatchedTestCase):
         self.mock_http_connection = Mock(spec=HTTPConnection)
         self.mock_response = Mock(spec=HTTPResponse)
         self.mock_http_connection.getresponse.return_value = self.mock_response
-        self.target = py_lightweight_uploader.UploadableFile('/path/to/fake_file_name.txt', self.mock_http_connection, 'fake_desination_url')
+        self.target = py_lightweight_uploader.UploadableFile('/path/to/fake_file_name.txt', 'http://fake.destination/url?a=b&c=d', self.mock_http_connection)
 
     def test_is_done_false(self):
         self.assertFalse(self.target.is_done)
@@ -58,7 +58,7 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('fake_desination_url', m[0][1][1])
+        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
@@ -82,7 +82,7 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('fake_desination_url', m[0][1][1])
+        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
@@ -106,7 +106,7 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('fake_desination_url', m[0][1][1])
+        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',

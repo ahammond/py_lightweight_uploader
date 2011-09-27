@@ -9,7 +9,7 @@ import re
 from threading import Thread, Lock
 from time import sleep
 from urllib import quote_plus
-from urlparse import urlparse
+from urlparse import urlparse, ParseResult, urlunparse
 from uuid import uuid4
 
 __author__ = 'Andrew Hammond <andrew.hammond@receipt.com>'
@@ -68,10 +68,8 @@ class LightweightUploader(Thread):
                 raise NotImplementedError('write me if you want me.')
             id = uuid4()
             url = urlparse(upload_url)
-            if http_connection is None:
-                http_connection = HTTPConnection(url.netloc)
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
-            self.upload_queue.append(UploadQueueEntry(id, UploadableFile(file_name, http_connection, url.path)))
+            self.upload_queue.append(UploadQueueEntry(id, UploadableFile(file_name, url, http_connection)))
         finally:
             self.lock.release()
         return id
@@ -129,6 +127,7 @@ class LightweightUploader(Thread):
                     debug('Uploaded a chunk, continuing to upload %s', top_of_queue.file_name)
                 elif r < 0: # Upload of a chunk failed.
                     debug('Failed to upload a chunk.')
+                    raise Exception('bonk')
             finally:
                 self.lock.release()
 
@@ -141,17 +140,26 @@ class UploadableFile(object):
     # default chunk size is just a guess for now.
     # Note: we are just reading a segment the lenght of chunksize directly into memory.
     # If you set chunk_size to really-really big, you'll run out of memory.
-    def __init__(self, file_name, http_connection, destination_path, file_type=None, chunk_size=1024*5):
+    def __init__(self, file_name, destination_url, http_connection=None, file_type=None, chunk_size=1024*5):
         self._session_id = None
         self._content_length = None
         self._total_file_size = None
         self._file_handle = None
         self.last_byte_uploaded = 0
         self.file_name = file_name
-        self.http_connection = http_connection
-        self.destination_url = destination_path
+        self._http_connection = http_connection
         self._file_type = file_type
         self.chunk_size = chunk_size
+        if isinstance(destination_url, ParseResult):
+            self.destination_url = destination_url
+        else:
+            self.destination_url = urlparse(destination_url)
+
+    @property
+    def http_connection(self):
+        if self._http_connection is None:
+            self._http_connection = HTTPConnection(url.netloc)
+        return self._http_connection
 
     @property
     def session_id(self):
@@ -208,7 +216,7 @@ class UploadableFile(object):
         }
 
         debug('Sending %s %s', tail, range)
-        self.http_connection.request('POST', self.destination_url, self.next_chunk, headers)
+        self.http_connection.request('POST', urlunparse(self.destination_url), self.next_chunk, headers)
         response = self.http_connection.getresponse()
         debug('Got response: %s', response.read())
         if 201 == response.status:
@@ -269,9 +277,9 @@ if __name__ == '__main__':
     # re-use the HTTPConnection rather than making a new one per file
     upload_url = arguments.pop(0)
     url = urlparse(upload_url)
-    http_connection = HTTPConnection(url.netloc)
+
     for f in arguments:
-        theLightweightUploader.enqueue_upload(f, upload_url, http_connection=http_connection)
+        theLightweightUploader.enqueue_upload(f, upload_url, http_connection=HTTPConnection(url.netloc))
 
     # wait for all files to be uploaded.
     while not theLightweightUploader.is_done:
