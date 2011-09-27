@@ -123,7 +123,7 @@ class LightweightUploader(Thread):
                 top_of_queue = self.upload_queue[0].file
                 r = top_of_queue.post_next_chunk()
                 if 0 == r:  # finished uploading. Yay!
-                    info('Completed uploading %s', top_of_queue.file.file_name)
+                    info('Completed uploading %s', top_of_queue.file_name)
                     self.upload_queue = self.upload_queue[1:]
                 elif r > 0: # I uploaded a single chunk, carrying on...
                     debug('Uploaded a chunk, continuing to upload %s', top_of_queue.file_name)
@@ -145,6 +145,7 @@ class UploadableFile(object):
         self._session_id = None
         self._content_length = None
         self._total_file_size = None
+        self._file_handle = None
         self.last_byte_uploaded = 0
         self.file_name = file_name
         self.http_connection = http_connection
@@ -183,11 +184,16 @@ class UploadableFile(object):
         return 'bytes %d-%d/%d' % (self.last_byte_uploaded, top_bound, self.total_file_size)
 
     @property
+    def file_handle(self):
+        if self._file_handle is None:
+            self._file_handle = open(self.file_name, 'rb')
+        return self._file_handle
+
+    @property
     def next_chunk(self):
-        with open(self.file_name, 'rb') as f:
-            f.seek(self.last_byte_uploaded)
-            chunk = f.read(self.chunk_size)
-        # Might need to encode this first... ?
+        if self.last_byte_uploaded > 0:
+            self.file_handle.seek(self.last_byte_uploaded - 1)
+        chunk = self.file_handle.read(self.chunk_size)
         return chunk
 
     def post_next_chunk(self):
@@ -204,6 +210,7 @@ class UploadableFile(object):
         debug('Sending %s %s', tail, range)
         self.http_connection.request('POST', self.destination_url, self.next_chunk, headers)
         response = self.http_connection.getresponse()
+        debug('Got response: %s', response.read())
         if 201 == response.status:
             # Not done yet, figure out the next lowest bound in the series and set last_byte_uploaded.
             received_range = response.getheader('Range')
@@ -215,6 +222,7 @@ class UploadableFile(object):
                 self.last_byte_uploaded = int(m.group('last_byte_received'))
             return self.total_file_size - self.last_byte_uploaded
         elif 200 == response.status:            # yay! we're done!!!
+            self._file_handle.close()
             self.last_byte_uploaded = self.total_file_size
             return 0
         else:
