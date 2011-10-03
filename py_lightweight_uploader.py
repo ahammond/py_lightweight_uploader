@@ -140,7 +140,7 @@ class UploadableFile(object):
     # default chunk size is just a guess for now.
     # Note: we are just reading a segment the lenght of chunksize directly into memory.
     # If you set chunk_size to really-really big, you'll run out of memory.
-    def __init__(self, file_name, destination_url, http_connection=None, file_type=None, chunk_size=1024*5):
+    def __init__(self, file_name, destination_url, http_connection=None, file_type=None, chunk_size=1024*50):
         self._session_id = None
         self._content_length = None
         self._total_file_size = None
@@ -200,9 +200,13 @@ class UploadableFile(object):
     @property
     def next_chunk(self):
         if self.last_byte_uploaded > 0:
-            self.file_handle.seek(self.last_byte_uploaded - 1)
+            self.file_handle.seek(self.last_byte_uploaded) # upload starting from the next byte
         chunk = self.file_handle.read(self.chunk_size)
         return chunk
+
+    @property
+    def uri_bits(self):
+        return '%s?%s' % (self.destination_url.path, self.destination_url.query)
 
     def post_next_chunk(self):
         from os.path import split
@@ -216,7 +220,7 @@ class UploadableFile(object):
         }
 
         debug('Sending %s %s', tail, range)
-        self.http_connection.request('POST', urlunparse(self.destination_url), self.next_chunk, headers)
+        self.http_connection.request('POST', self.uri_bits, self.next_chunk, headers)
         response = self.http_connection.getresponse()
         debug('Got response: %s', response.read())
         if 201 == response.status:
