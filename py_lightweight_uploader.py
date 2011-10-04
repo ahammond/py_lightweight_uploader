@@ -206,7 +206,7 @@ class UploadableFile(object):
         return chunk
 
     @property
-    def uri_bits(self):
+    def uri(self):
         return '%s?%s' % (self.destination_url.path, self.destination_url.query)
 
     def post_next_chunk(self):
@@ -221,7 +221,7 @@ class UploadableFile(object):
         }
 
         debug('Sending %s %s', tail, range)
-        self.http_connection.request('POST', self.uri_bits, self.next_chunk, headers)
+        self.http_connection.request('POST', self.uri, self.next_chunk, headers)
         response = self.http_connection.getresponse()
         debug('Got response: %s', response.read())
         if 201 == response.status:
