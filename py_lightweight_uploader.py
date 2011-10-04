@@ -24,7 +24,7 @@ __vcs_id__ = '$Id$'
 # In that case, we ignore the subsequent segments and simply find the first
 # MISSING segment. This doesn't necessarily mean we will re-upload anything,
 # since, after uploading the first missing segment, we check again.
-RECEIVED_RANGE_PATTERN = re.compile(r'^0-(?P<last_byte_received>\d+)')
+RECEIVED_RANGE_PATTERN = re.compile(r'^0-(?P<next_byte_to_upload>\d+)')
 
 class UploadQueueEntry(object):
     def __init__(self, id, file):
@@ -145,7 +145,7 @@ class UploadableFile(object):
         self._content_length = None
         self._total_file_size = None
         self._file_handle = None
-        self.last_byte_uploaded = 0
+        self.next_byte_to_upload = 0
         self.file_name = file_name
         self._http_connection = http_connection
         self._file_type = file_type
@@ -187,10 +187,9 @@ class UploadableFile(object):
 
     @property
     def next_content_range(self):
-        plus_chunk = self.last_byte_uploaded + self.chunk_size - 1
+        plus_chunk = self.next_byte_to_upload + self.chunk_size
         top_bound = plus_chunk if plus_chunk < self.total_file_size else self.total_file_size - 1
-        bottom_bound = self.last_byte_uploaded + 1 if self.last_byte_uploaded > 0 else 0
-        return 'bytes %d-%d/%d' % (bottom_bound, top_bound, self.total_file_size)
+        return 'bytes %d-%d/%d' % (self.next_byte_to_upload, top_bound, self.total_file_size)
 
     @property
     def file_handle(self):
@@ -200,9 +199,8 @@ class UploadableFile(object):
 
     @property
     def next_chunk(self):
-        if self.last_byte_uploaded > 0:
-            self.file_handle.seek(self.last_byte_uploaded + 1) # upload starting from the next byte
-        chunk = self.file_handle.read(self.chunk_size)
+        self.file_handle.seek(self.next_byte_to_upload) # upload starting from the next byte
+        chunk = self.file_handle.read(self.chunk_size + 1)
         return chunk
 
     @property
@@ -225,18 +223,19 @@ class UploadableFile(object):
         response = self.http_connection.getresponse()
         debug('Got response: %s', response.read())
         if 201 == response.status:
-            # Not done yet, figure out the next lowest bound in the series and set last_byte_uploaded.
+            # Not done yet, figure out the next lowest bound in the series and set next_byte_to_upload.
             received_range = response.getheader('Range')
             m = RECEIVED_RANGE_PATTERN.match(received_range)
             if m is None:
                 debug('Starting at byte 0, since odd received range: %s', received_range)
-                self.last_byte_uploaded = 0
+                self.next_byte_to_upload = 0
             else:
-                self.last_byte_uploaded = int(m.group('last_byte_received'))
-            return self.total_file_size - self.last_byte_uploaded
+                self.next_byte_to_upload = int(m.group('next_byte_to_upload'))
+                debug('Advancing next_byte_to_upload to %d', self.next_byte_to_upload)
+            return self.total_file_size - self.next_byte_to_upload
         elif 200 == response.status:            # yay! we're done!!!
             self._file_handle.close()
-            self.last_byte_uploaded = self.total_file_size
+            self.next_byte_to_upload = self.total_file_size
             return 0
         else:
             warning('I got an unexpected return status: %d %s', response.status, response.reason)
@@ -244,7 +243,7 @@ class UploadableFile(object):
 
     @property
     def is_done(self):
-        return self.last_byte_uploaded >= self.total_file_size
+        return self.next_byte_to_upload >= self.total_file_size
 
 theLightweightUploader = LightweightUploader()
 
