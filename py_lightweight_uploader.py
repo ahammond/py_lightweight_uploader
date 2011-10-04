@@ -188,7 +188,7 @@ class UploadableFile(object):
     @property
     def next_content_range(self):
         plus_chunk = self.last_byte_uploaded + self.chunk_size - 1
-        top_bound = plus_chunk if plus_chunk < self.total_file_size else self.total_file_size
+        top_bound = plus_chunk if plus_chunk < self.total_file_size else self.total_file_size - 1
         return 'bytes %d-%d/%d' % (self.last_byte_uploaded, top_bound, self.total_file_size)
 
     @property

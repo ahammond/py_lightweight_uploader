@@ -58,12 +58,12 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
+        self.assertEquals('/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
                            'Session-ID': 6543217,
-                           'X-Content-Range': 'bytes 0-5119/123456'}, m[0][1][3])
+                           'X-Content-Range': 'bytes 0-51199/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])
         self.assertEquals((), m[1][1])
@@ -72,9 +72,9 @@ class TestUploadableFile(PatchedTestCase):
     def test_post_next_chunk_testing_second_step(self):
         self.target.last_byte_uploaded = 10000
         self.mock_response.status = 201
-        self.mock_response.getheader.return_value = '0-15119/123456'
+        self.mock_response.getheader.return_value = '0-61199/123456'
         self.target.post_next_chunk()
-        self.assertEquals(15119, self.target.last_byte_uploaded)
+        self.assertEquals(61199, self.target.last_byte_uploaded)
 
         self.mock_open.assert_called_once_with('/path/to/fake_file_name.txt', 'rb')
 
@@ -82,12 +82,12 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
+        self.assertEquals('/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
                            'Session-ID': 6543217,
-                           'X-Content-Range': 'bytes 10000-15119/123456'}, m[0][1][3])
+                           'X-Content-Range': 'bytes 10000-61199/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])
         self.assertEquals((), m[1][1])
@@ -96,7 +96,7 @@ class TestUploadableFile(PatchedTestCase):
     def test_post_next_chunk_testing_final_step(self):
         self.target.last_byte_uploaded = 123450
         self.mock_response.status = 200
-        self.mock_response.getheader.return_value = '0-1234/123456'
+        self.mock_response.getheader.return_value = '0-123455/123456'
         self.target.post_next_chunk()
         self.assertEquals(123456, self.target.last_byte_uploaded)
 
@@ -106,12 +106,12 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals(2, len(m))
         self.assertEquals('request', m[0][0])
         self.assertEquals('POST', m[0][1][0])
-        self.assertEquals('http://fake.destination/url?a=b&c=d', m[0][1][1])
+        self.assertEquals('/url?a=b&c=d', m[0][1][1])
         #self.assertEquals(self.mock_file, m[0][1][2])
         self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
                            'Content-Type': 'text/plain',
                            'Session-ID': 6543217,
-                           'X-Content-Range': 'bytes 123450-123456/123456'}, m[0][1][3])
+                           'X-Content-Range': 'bytes 123450-123455/123456'}, m[0][1][3])
         self.assertEquals({}, m[0][2])
         self.assertEquals('getresponse', m[1][0])
         self.assertEquals((), m[1][1])
