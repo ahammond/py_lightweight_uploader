@@ -270,7 +270,7 @@ class UploadableFile(object):
                 try:
                     self.content.seek(0)
                 except AttributeError:                  # assume it's a string
-                    self._file_handle = StringIO(s=self.content)
+                    self._file_handle = StringIO(self.content)
         return self._file_handle
 
     @property

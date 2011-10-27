@@ -5,6 +5,7 @@ Relies on the Mock stuff from http://www.voidspace.org.uk/python/mock/
 And unittest2 (which is pretty standard these days, seems to me)
 """
 
+from cStringIO import StringIO
 from httplib import HTTPConnection, HTTPResponse
 from logging import debug, info, warning, critical
 from mock import Mock, MagicMock
@@ -195,6 +196,75 @@ class TestUploadableFile(PatchedTestCase):
         self.mock_response.getheader.return_value = ''
         self.target.post_next_chunk()
         self.assertEquals(False, mock_on_complete.called)
+
+    def test_content_override_is_string(self):
+        fake_content = 'fake file contents'
+        fake_content_length = len(fake_content)
+
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            content=fake_content
+        )
+        self.mock_response.status = 201
+        self.mock_response.getheader.return_value = '0-%d/%d' % (fake_content_length - 1, fake_content_length)
+        self.target.post_next_chunk()
+
+        self.assertEquals(fake_content_length - 1, self.target.next_byte_to_upload)
+
+        self.assertEquals(False, self.mock_open.called)
+
+        m = self.mock_http_connection.method_calls
+        self.assertEquals(2, len(m))
+        self.assertEquals('request', m[0][0])
+        self.assertEquals('POST', m[0][1][0])
+        self.assertEquals('/url?a=b&c=d', m[0][1][1])
+        #self.assertEquals(self.mock_file, m[0][1][2])
+        self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
+                           'Content-Type': 'text/plain',
+                           'Session-ID': 6543217,
+                           'X-Content-Range': 'bytes 0-%d/%d' % (fake_content_length - 1, fake_content_length)
+                          }, m[0][1][3])
+        self.assertEquals({}, m[0][2])
+        self.assertEquals('getresponse', m[1][0])
+        self.assertEquals((), m[1][1])
+        self.assertEquals({}, m[1][2])
+
+    def test_content_override_is_StringIO(self):
+        fake_content = 'fake file contents'
+        fake_content_length = len(fake_content)
+        fake_stringio_content = StringIO(fake_content)
+
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            content=fake_stringio_content
+        )
+        self.mock_response.status = 201
+        self.mock_response.getheader.return_value = '0-%d/%d' % (fake_content_length - 1, fake_content_length)
+        self.target.post_next_chunk()
+
+        self.assertEquals(fake_content_length - 1, self.target.next_byte_to_upload)
+
+        self.assertEquals(False, self.mock_open.called)
+
+        m = self.mock_http_connection.method_calls
+        self.assertEquals(2, len(m))
+        self.assertEquals('request', m[0][0])
+        self.assertEquals('POST', m[0][1][0])
+        self.assertEquals('/url?a=b&c=d', m[0][1][1])
+        #self.assertEquals(self.mock_file, m[0][1][2])
+        self.assertEquals({'Content-Disposition': 'attachment; filename="fake_file_name.txt"',
+                           'Content-Type': 'text/plain',
+                           'Session-ID': 6543217,
+                           'X-Content-Range': 'bytes 0-%d/%d' % (fake_content_length - 1, fake_content_length)
+                          }, m[0][1][3])
+        self.assertEquals({}, m[0][2])
+        self.assertEquals('getresponse', m[1][0])
+        self.assertEquals((), m[1][1])
+        self.assertEquals({}, m[1][2])
 
 
 class TestLightweightUploader(PatchedTestCase): pass
