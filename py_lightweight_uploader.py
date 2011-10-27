@@ -75,7 +75,7 @@ class LightweightUploader(Thread):
 
     def enqueue_upload(self, file_name, upload_url, additional_data=None, http_connection=None):
         """
-        Add file_object to the upload queue. Returns and upload_id.
+        Add file_object to the upload queue. Returns an upload_id.
 
         file_object: The file to be uploaded
         upload_url: The absolute URL to which the file should be uploaded
