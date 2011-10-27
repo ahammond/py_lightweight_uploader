@@ -77,16 +77,17 @@ class LightweightUploader(Thread):
                        file_name,
                        upload_url,
                        additional_data=None,
-                       http_connection=None
+                       http_connection=None,
+                       destination_filename=None
             ):
         """
         Add file_object to the upload queue. Returns an upload_id.
 
         file_object: The file to be uploaded
         upload_url: The absolute URL to which the file should be uploaded
-        additional_data: Additional data to be passed to the server in the query string format
-
-        additional_data should be passsed as GET parameters, but is not implemented yet.
+        additional_data: Additional data to be passed to the server in the query string as GET parameters
+        http_connection: optional, but if given, the HttpConnection object to use for sending
+        destination_filename: name file should be uploaded to. If None, defaults to current filename.
         """
 
         self.lock.acquire(True)
@@ -95,7 +96,7 @@ class LightweightUploader(Thread):
             url = urlparse(upload_url)
             if additional_data is not None:
                 params = urlencode(additional_data)
-                url.params = params
+                url.params = '&'.join([url.params, params])
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
             self.upload_queue.append(
                 UploadQueueEntry(
@@ -103,7 +104,8 @@ class LightweightUploader(Thread):
                     UploadableFile(
                         file_name,
                         url,
-                        http_connection=http_connection
+                        http_connection=http_connection,
+                        destination_filename=destination_filename
                     )
                 )
             )
@@ -182,7 +184,9 @@ class UploadableFile(object):
                  file_name,
                  destination_url,
                  http_connection=None,
-                 destination_filename=None
+                 destination_filename=None,
+                 file_type=None,
+                 chunk_size=None
             ):
         self._session_id = None
         self._content_length = None
@@ -191,8 +195,9 @@ class UploadableFile(object):
         self.next_byte_to_upload = 0
         self.file_name = file_name
         self._http_connection = http_connection
+        self._destination_filename = destination_filename
         self._file_type = file_type
-        self.chunk_size = chunk_size
+        self.chunk_size = chunk_size if chunk_size is not None else 1024*50
         if isinstance(destination_url, ParseResult):
             self.destination_url = destination_url
         else:
@@ -247,21 +252,27 @@ class UploadableFile(object):
         return chunk
 
     @property
+    def destination_filename(self):
+        if self._destination_filename is None:
+            from os.path import split
+            (head, tail) = split(self.file_name)
+            self._destination_filename = tail
+        return self._destination_filename
+
+    @property
     def uri(self):
         return '%s?%s' % (self.destination_url.path, self.destination_url.query)
 
     def post_next_chunk(self):
-        from os.path import split
-        (head, tail) = split(self.file_name)
         range = self.next_content_range
         headers = {
-            'Content-Disposition': 'attachment; filename="%s"' % quote_plus(tail),
+            'Content-Disposition': 'attachment; filename="%s"' % quote_plus(self.destination_filename),
             'Content-Type': self.file_type,
             'X-Content-Range': range,
             'Session-ID': self.session_id,
         }
 
-        debug('Sending %s %s', tail, range)
+        debug('Sending %s %s', self.destination_filename, range)
         self.http_connection.request('POST', self.uri, self.next_chunk, headers)
         response = self.http_connection.getresponse()
         debug('Got response: %s', response.read())
