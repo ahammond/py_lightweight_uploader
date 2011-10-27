@@ -48,23 +48,6 @@ class TestUploadableFile(PatchedTestCase):
         self.target.next_byte_to_upload = 123456
         self.assertTrue(self.target.is_done)
 
-    def test_destination_file(self):
-        self.target = py_lightweight_uploader.UploadableFile(
-            '/path/to/fake_file_name.txt',
-            'http://fake.destination/url?a=b&c=d',
-            self.mock_http_connection,
-            destination_filename='fake_destination_file_name.txt'
-        )
-        self.mock_response.status = 201
-        self.mock_response.getheader.return_value = '0-51200/123456'     # what did the server receive?
-
-        self.target.post_next_chunk()
-        m = self.mock_http_connection.method_calls
-        self.assertEquals({'Content-Disposition': 'attachment; filename="fake_destination_file_name.txt"',
-                           'Content-Type': 'text/plain',
-                           'Session-ID': 6543217,
-                           'X-Content-Range': 'bytes 0-51200/123456'}, m[0][1][3])
-
     def test_post_next_chunk_testing_first_step(self):
         self.target = py_lightweight_uploader.UploadableFile(
             '/path/to/fake_file_name.txt',
@@ -156,6 +139,23 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals('getresponse', m[1][0])
         self.assertEquals((), m[1][1])
         self.assertEquals({}, m[1][2])
+
+    def test_destination_file(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            destination_filename='fake_destination_file_name.txt'
+        )
+        self.mock_response.status = 201
+        self.mock_response.getheader.return_value = '0-51200/123456'     # what did the server receive?
+
+        self.target.post_next_chunk()
+        m = self.mock_http_connection.method_calls
+        self.assertEquals({'Content-Disposition': 'attachment; filename="fake_destination_file_name.txt"',
+                           'Content-Type': 'text/plain',
+                           'Session-ID': 6543217,
+                           'X-Content-Range': 'bytes 0-51200/123456'}, m[0][1][3])
 
     def test_on_complete_go_right(self):
         mock_on_complete = Mock()
