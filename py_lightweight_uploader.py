@@ -191,9 +191,10 @@ class UploadableFile(object):
 
     Content of what is uploaded is determined in file_handle() below.
     If the content is not None, the it is used as the source of the file's contents.
-    If it is a string, it is turned into a StringIO. Otherwise it is simply
+    If it is a string, it is turned into a StringIO. Otherwise it is simply treated as a file type object.
 
     """
+    # TODO: Have a boundary size (probably related to chunk size in some way) and do a simple post for smaller files?
 
     def __init__(self,
                  file_name,
@@ -321,6 +322,9 @@ class UploadableFile(object):
             if self.on_complete:
                 self.on_complete(response=self.response)
             return 0
+        # TODO: add redirection support?
+#        elif self.response.status in (301, 307): # perm/temp redir
+#            new_url = self.response.headers['Location']
         else:
             warning('I got an unexpected return status: %d %s', self.response.status, self.response.reason)
             if self.on_complete:
