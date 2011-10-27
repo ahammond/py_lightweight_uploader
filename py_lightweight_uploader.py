@@ -78,7 +78,7 @@ class LightweightUploader(Thread):
                        upload_url,
                        additional_data=None,
                        http_connection=None
-                       ):
+            ):
         """
         Add file_object to the upload queue. Returns an upload_id.
 

@@ -31,16 +31,30 @@ class TestUploadableFile(PatchedTestCase):
         self.mock_http_connection = Mock(spec=HTTPConnection)
         self.mock_response = Mock(spec=HTTPResponse)
         self.mock_http_connection.getresponse.return_value = self.mock_response
-        self.target = py_lightweight_uploader.UploadableFile('/path/to/fake_file_name.txt', 'http://fake.destination/url?a=b&c=d', self.mock_http_connection)
 
     def test_is_done_false(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+        )
         self.assertFalse(self.target.is_done)
 
     def test_is_done_true(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+        )
         self.target.next_byte_to_upload = 123456
         self.assertTrue(self.target.is_done)
 
     def test_post_next_chunk_testing_first_step(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+        )
         self.mock_response.status = 201
         self.mock_response.getheader.return_value = '0-51200/123456'     # what did the server receive?
 
@@ -70,6 +84,11 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals({}, m[1][2])
 
     def test_post_next_chunk_testing_second_step(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+        )
         self.target.next_byte_to_upload = 10000
         self.mock_response.status = 201
         self.mock_response.getheader.return_value = '0-61200/123456'
@@ -94,6 +113,11 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals({}, m[1][2])
 
     def test_post_next_chunk_testing_final_step(self):
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+        )
         self.target.next_byte_to_upload = 123450
         self.mock_response.status = 200
         self.mock_response.getheader.return_value = '0-123455/123456'
