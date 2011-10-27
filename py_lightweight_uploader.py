@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
+from cStringIO import StringIO
 from httplib import HTTPConnection
 from logging import debug, info, warning, critical
 from mimetypes import guess_type
-from os.path import getsize
+from os import SEEK_END
 from random import randint
 import re
 from threading import Thread, Lock
@@ -79,17 +80,20 @@ class LightweightUploader(Thread):
                        additional_data=None,
                        http_connection=None,
                        destination_filename=None,
-                       on_complete=None
+                       on_complete=None,
+                       content=None
             ):
         """
         Add file_object to the upload queue. Returns an upload_id.
 
-        file_object: The file to be uploaded
+        file_name: The name file to be uploaded
         upload_url: The absolute URL to which the file should be uploaded
         additional_data: Additional data to be passed to the server in the query string as GET parameters
         http_connection: optional, but if given, the HttpConnection object to use for sending
         destination_filename: name file should be uploaded to. If None, defaults to current filename.
-        on_complete: called when the upload completes and given response=HttpResponse object
+        on_complete: called when the upload completes and given response=HttpResponse object.
+        content: override the content of the file. If a seekable/readable object, treat as filehandle.
+          Otherwise, treat it as a string.
         """
 
         self.lock.acquire(True)
@@ -108,7 +112,8 @@ class LightweightUploader(Thread):
                         url,
                         http_connection=http_connection,
                         destination_filename=destination_filename,
-                        on_complete=on_complete
+                        on_complete=on_complete,
+                        content=content
                     )
                 )
             )
@@ -179,9 +184,16 @@ class LightweightUploader(Thread):
 
 class UploadableFile(object):
 
-    # default chunk size is just a guess for now.
-    # Note: we are just reading a segment the lenght of chunksize directly into memory.
-    # If you set chunk_size to really-really big, you'll run out of memory.
+    """
+    The default chunk size is just a guess for now.
+    Note: we are just reading a segment the lenght of chunksize directly into memory.
+    If you set chunk_size to really-really big, you might have memory issues.
+
+    Content of what is uploaded is determined in file_handle() below.
+    If the content is not None, the it is used as the source of the file's contents.
+    If it is a string, it is turned into a StringIO. Otherwise it is simply
+
+    """
 
     def __init__(self,
                  file_name,
@@ -190,7 +202,8 @@ class UploadableFile(object):
                  destination_filename=None,
                  file_type=None,
                  chunk_size=None,
-                 on_complete=None
+                 on_complete=None,
+                 content=None
             ):
         self._session_id = None
         self._content_length = None
@@ -203,6 +216,7 @@ class UploadableFile(object):
         self._file_type = file_type
         self.chunk_size = chunk_size if chunk_size is not None else 1024*50
         self.on_complete = on_complete
+        self.content = content
         self.response = None
         if isinstance(destination_url, ParseResult):
             self.destination_url = destination_url
@@ -236,7 +250,8 @@ class UploadableFile(object):
     @property
     def total_file_size(self):
         if self._total_file_size is None:
-            self._total_file_size = getsize(self.file_name)
+            self.file_handle.seek(0, SEEK_END)
+            self._total_file_size = self.file_handle.tell()
         return self._total_file_size
 
     @property
@@ -248,7 +263,14 @@ class UploadableFile(object):
     @property
     def file_handle(self):
         if self._file_handle is None:
-            self._file_handle = open(self.file_name, 'rb')
+            if self.content is None:
+                self._file_handle = open(self.file_name, 'rb')
+            else:
+                self._file_handle = self.content        # assume it's a file handle / StringIO
+                try:
+                    self.content.seek(0)
+                except AttributeError:                  # assume it's a string
+                    self._file_handle = StringIO(s=self.content)
         return self._file_handle
 
     @property

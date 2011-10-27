@@ -7,8 +7,7 @@ And unittest2 (which is pretty standard these days, seems to me)
 
 from httplib import HTTPConnection, HTTPResponse
 from logging import debug, info, warning, critical
-from os.path import getsize
-from mock import Mock, MagicMock, patch
+from mock import Mock, MagicMock
 from patched_unittest2 import *
 from random import randint
 
@@ -19,15 +18,14 @@ class TestUploadableFile(PatchedTestCase): pass
 @TestUploadableFile.patch('py_lightweight_uploader.info', spec=info)
 @TestUploadableFile.patch('py_lightweight_uploader.warning', spec=warning)
 @TestUploadableFile.patch('py_lightweight_uploader.critical', spec=critical)
-@TestUploadableFile.patch('py_lightweight_uploader.getsize', spec=getsize)
 @TestUploadableFile.patch('py_lightweight_uploader.open', create=True)
 @TestUploadableFile.patch('py_lightweight_uploader.randint', spec=randint)
 class TestUploadableFile(PatchedTestCase):
 
     def postSetUpPreRun(self):
         self.mock_randint.return_value = 6543217
-        self.mock_getsize.return_value = 123456
         self.mock_open.return_value = MagicMock(spec=file)
+        self.mock_open.return_value.tell.return_value = 123456
         self.mock_http_connection = Mock(spec=HTTPConnection)
         self.mock_response = Mock(spec=HTTPResponse)
         self.mock_http_connection.getresponse.return_value = self.mock_response
