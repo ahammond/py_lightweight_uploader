@@ -73,7 +73,12 @@ class LightweightUploader(Thread):
         self.upload_queue = []
         self.lock = Lock()
 
-    def enqueue_upload(self, file_name, upload_url, additional_data=None, http_connection=None):
+    def enqueue_upload(self,
+                       file_name,
+                       upload_url,
+                       additional_data=None,
+                       http_connection=None
+                       ):
         """
         Add file_object to the upload queue. Returns an upload_id.
 
@@ -92,7 +97,16 @@ class LightweightUploader(Thread):
             id = uuid4()
             url = urlparse(upload_url)
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
-            self.upload_queue.append(UploadQueueEntry(id, UploadableFile(file_name, url, http_connection)))
+            self.upload_queue.append(
+                UploadQueueEntry(
+                    id,
+                    UploadableFile(
+                        file_name,
+                        url,
+                        http_connection=http_connection
+                    )
+                )
+            )
         finally:
             self.lock.release()
         return id
@@ -163,7 +177,13 @@ class UploadableFile(object):
     # default chunk size is just a guess for now.
     # Note: we are just reading a segment the lenght of chunksize directly into memory.
     # If you set chunk_size to really-really big, you'll run out of memory.
-    def __init__(self, file_name, destination_url, http_connection=None, file_type=None, chunk_size=1024*50):
+
+    def __init__(self,
+                 file_name,
+                 destination_url,
+                 http_connection=None,
+                 destination_filename=None
+            ):
         self._session_id = None
         self._content_length = None
         self._total_file_size = None
