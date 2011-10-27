@@ -91,11 +91,11 @@ class LightweightUploader(Thread):
 
         self.lock.acquire(True)
         try:
-            if additional_data is not None:
-                # I think the way to do this is to encode it into the upload_url, but... ?
-                raise NotImplementedError('write me if you want me.')
             id = uuid4()
             url = urlparse(upload_url)
+            if additional_data is not None:
+                params = urlencode(additional_data)
+                url.params = params
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
             self.upload_queue.append(
                 UploadQueueEntry(
