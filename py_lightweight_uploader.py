@@ -68,7 +68,7 @@ class LightweightUploader(Thread):
     """
 
     def __init__(self, group=None, target=None, name='theLightweightUploader', args=(), kwargs={}):
-        super(LightweightUploader, self).__init__(*args, **kwargs)
+        super(LightweightUploader, self).__init__(group=group, target=target, name=name, *args, **kwargs)
         self.daemon = True
         self.upload_queue = []
         self.lock = Lock()
