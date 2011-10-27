@@ -66,7 +66,6 @@ class TestUploadableFile(PatchedTestCase):
                            'Session-ID': 6543217,
                            'X-Content-Range': 'bytes 0-51200/123456'}, m[0][1][3])
 
-
     def test_post_next_chunk_testing_first_step(self):
         self.target = py_lightweight_uploader.UploadableFile(
             '/path/to/fake_file_name.txt',
@@ -158,6 +157,47 @@ class TestUploadableFile(PatchedTestCase):
         self.assertEquals('getresponse', m[1][0])
         self.assertEquals((), m[1][1])
         self.assertEquals({}, m[1][2])
+
+    def test_on_complete_go_right(self):
+        mock_on_complete = Mock()
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            on_complete=mock_on_complete
+        )
+        self.mock_response.status = 200
+        self.mock_response.getheader.return_value = '0-123455/123456'
+        self.target.post_next_chunk()
+        mock_on_complete.assert_called_once_with(response=self.mock_response)
+
+    def test_on_complete_go_wrong(self):
+        mock_on_complete = Mock()
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            on_complete=mock_on_complete
+        )
+        self.mock_response.status = 400
+        self.mock_response.reason = 'fake reason to 400'
+        self.mock_response.getheader.return_value = ''
+        self.target.post_next_chunk()
+        mock_on_complete.assert_called_once_with(response=self.mock_response)
+
+    def test_on_complete_not_called_yet(self):
+        mock_on_complete = Mock()
+        self.target = py_lightweight_uploader.UploadableFile(
+            '/path/to/fake_file_name.txt',
+            'http://fake.destination/url?a=b&c=d',
+            self.mock_http_connection,
+            on_complete=mock_on_complete
+        )
+        self.mock_response.status = 201
+        self.mock_response.getheader.return_value = ''
+        self.target.post_next_chunk()
+        self.assertEquals(False, mock_on_complete.called)
+
 
 class TestLightweightUploader(PatchedTestCase): pass
 @TestLightweightUploader.patch('py_lightweight_uploader.debug', spec=debug)

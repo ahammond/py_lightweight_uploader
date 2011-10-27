@@ -8,7 +8,7 @@ from random import randint
 import re
 from threading import Thread, Lock
 from time import sleep
-from urllib import quote_plus
+from urllib import quote_plus, urlencode
 from urlparse import urlparse, ParseResult, urlunparse
 from uuid import uuid4
 
@@ -78,7 +78,8 @@ class LightweightUploader(Thread):
                        upload_url,
                        additional_data=None,
                        http_connection=None,
-                       destination_filename=None
+                       destination_filename=None,
+                       on_complete=None
             ):
         """
         Add file_object to the upload queue. Returns an upload_id.
@@ -88,6 +89,7 @@ class LightweightUploader(Thread):
         additional_data: Additional data to be passed to the server in the query string as GET parameters
         http_connection: optional, but if given, the HttpConnection object to use for sending
         destination_filename: name file should be uploaded to. If None, defaults to current filename.
+        on_complete: called when the upload completes and given response=HttpResponse object
         """
 
         self.lock.acquire(True)
@@ -105,7 +107,8 @@ class LightweightUploader(Thread):
                         file_name,
                         url,
                         http_connection=http_connection,
-                        destination_filename=destination_filename
+                        destination_filename=destination_filename,
+                        on_complete=on_complete
                     )
                 )
             )
@@ -186,7 +189,8 @@ class UploadableFile(object):
                  http_connection=None,
                  destination_filename=None,
                  file_type=None,
-                 chunk_size=None
+                 chunk_size=None,
+                 on_complete=None
             ):
         self._session_id = None
         self._content_length = None
@@ -198,6 +202,8 @@ class UploadableFile(object):
         self._destination_filename = destination_filename
         self._file_type = file_type
         self.chunk_size = chunk_size if chunk_size is not None else 1024*50
+        self.on_complete = on_complete
+        self.response = None
         if isinstance(destination_url, ParseResult):
             self.destination_url = destination_url
         else:
@@ -274,11 +280,11 @@ class UploadableFile(object):
 
         debug('Sending %s %s', self.destination_filename, range)
         self.http_connection.request('POST', self.uri, self.next_chunk, headers)
-        response = self.http_connection.getresponse()
-        debug('Got response: %s', response.read())
-        if 201 == response.status:
+        self.response = self.http_connection.getresponse()
+        debug('Got response: %s', self.response.read())
+        if 201 == self.response.status:
             # Not done yet, figure out the next lowest bound in the series and set next_byte_to_upload.
-            received_range = response.getheader('Range')
+            received_range = self.response.getheader('Range')
             m = RECEIVED_RANGE_PATTERN.match(received_range)
             if m is None:
                 debug('Starting at byte 0, since odd received range: %s', received_range)
@@ -287,12 +293,16 @@ class UploadableFile(object):
                 self.next_byte_to_upload = int(m.group('next_byte_to_upload'))
                 debug('Advancing next_byte_to_upload to %d', self.next_byte_to_upload)
             return self.total_file_size - self.next_byte_to_upload
-        elif 200 == response.status:            # yay! we're done!!!
+        elif 200 == self.response.status:            # yay! we're done!!!
             self._file_handle.close()
             self.next_byte_to_upload = self.total_file_size
+            if self.on_complete:
+                self.on_complete(response=self.response)
             return 0
         else:
-            warning('I got an unexpected return status: %d %s', response.status, response.reason)
+            warning('I got an unexpected return status: %d %s', self.response.status, self.response.reason)
+            if self.on_complete:
+                self.on_complete(response=self.response)
             return -1
 
     @property
