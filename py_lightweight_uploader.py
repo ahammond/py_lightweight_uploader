@@ -101,8 +101,17 @@ class LightweightUploader(Thread):
             id = uuid4()
             url = urlparse(upload_url)
             if additional_data is not None:
-                params = urlencode(additional_data)
-                url.params = '&'.join([url.params, params])
+                updated_query = url.query + '&' if url.query else ''
+                updated_query += urlencode(additional_data)
+                url = ParseResult(
+                        scheme=url.scheme,
+                        netloc=url.netloc,
+                        path=url.path,
+                        params=url.params,
+                        query= updated_query,
+                        fragment=url.fragment
+                    )
+
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
             self.upload_queue.append(
                 UploadQueueEntry(

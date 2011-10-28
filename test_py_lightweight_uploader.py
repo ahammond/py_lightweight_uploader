@@ -8,6 +8,7 @@ And unittest2 (which is pretty standard these days, seems to me)
 from cStringIO import StringIO
 from httplib import HTTPConnection, HTTPResponse
 from logging import debug, info, warning, critical
+from urlparse import ParseResult
 from mock import Mock, MagicMock
 from patched_unittest2 import *
 from random import randint
@@ -290,6 +291,23 @@ class TestLightweightUploader(PatchedTestCase):
         id = target.enqueue_upload('fake_filename', 'fake_uploadurl')
         target.cancel_upload(id)
         self.assertEquals(0, len(target.upload_queue))
+
+    def test_additional_data(self):
+        target = py_lightweight_uploader.LightweightUploader()
+        mock_http_connection = Mock()
+        mock_on_complete = Mock()
+        id = target.enqueue_upload('fake_filename',
+                                   'http://fake_uploadurl.com/fake_path/?a=b&c=d#fake_fragment',
+                                   additional_data={'e': 'f'},
+                                   http_connection=mock_http_connection,
+                                   destination_filename='fake_destination_filename',
+                                   on_complete=mock_on_complete,
+                                   content='fake content'
+                                )
+        e = target.upload_queue[0]
+        self.assertEquals(
+            ParseResult(scheme='http', netloc='fake_uploadurl.com', path='/fake_path/', params='', query='a=b&c=d&e=f', fragment='fake_fragment'),
+            e.file.destination_url)
 
 #    @patch.object(py_lightweight_uploader.UploadableFile, 'post_next_chunk')
 #    def test_run_partial_upload(self, mock_post_next_chunk):
