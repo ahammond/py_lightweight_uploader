@@ -292,7 +292,7 @@ class TestLightweightUploader(PatchedTestCase):
         target.cancel_upload(id)
         self.assertEquals(0, len(target.upload_queue))
 
-    def test_additional_data(self):
+    def test_additional_data_etc(self):
         target = py_lightweight_uploader.LightweightUploader()
         mock_http_connection = Mock()
         mock_on_complete = Mock()
@@ -304,10 +304,14 @@ class TestLightweightUploader(PatchedTestCase):
                                    on_complete=mock_on_complete,
                                    content='fake content'
                                 )
-        e = target.upload_queue[0]
+        f = target.upload_queue[0].file
         self.assertEquals(
             ParseResult(scheme='http', netloc='fake_uploadurl.com', path='/fake_path/', params='', query='a=b&c=d&e=f', fragment='fake_fragment'),
-            e.file.destination_url)
+            f.destination_url)
+        self.assertEquals('fake_destination_filename', f.destination_filename)
+        self.assertEquals(mock_http_connection, f.http_connection)
+        self.assertEquals(mock_on_complete, f.on_complete)
+        self.assertEquals('fake content', f.content)
 
 #    @patch.object(py_lightweight_uploader.UploadableFile, 'post_next_chunk')
 #    def test_run_partial_upload(self, mock_post_next_chunk):
