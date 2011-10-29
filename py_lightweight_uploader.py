@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from cStringIO import StringIO
-from httplib import HTTPConnection
+from httplib import HTTPConnection, HTTPSConnection
 from logging import debug, info, warning, critical
 from mimetypes import guess_type
 from os import SEEK_END
@@ -380,9 +380,22 @@ if __name__ == '__main__':
     # re-use the HTTPConnection rather than making a new one per file
     upload_url = arguments.pop(0)
     url = urlparse(upload_url)
+    scheme = url.scheme.lower()
+    if 'http' == scheme:
+        connection = HTTPConnection(url.netloc)
+    elif 'https' == scheme:
+        connection = HTTPSConnection(url.netloc)
+    else:
+        raise ValueError("I only know how to upload via either http https")
 
     for f in arguments:
-        theLightweightUploader.enqueue_upload(f, upload_url, http_connection=HTTPConnection(url.netloc))
+        def notify(response):
+            info('%s: %d %s', f, response.status, response.reason)
+        theLightweightUploader.enqueue_upload(
+            f,
+            upload_url,
+            http_connection=connection,
+            on_complete=notify)
 
     # wait for all files to be uploaded.
     while not theLightweightUploader.is_done:
