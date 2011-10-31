@@ -236,7 +236,7 @@ class UploadableFile(object):
     @property
     def http_connection(self):
         if self._http_connection is None:
-            self._http_connection = HTTPConnection(url.netloc)
+            self._http_connection = HTTPConnection(self.destination_url.netloc)
         return self._http_connection
 
     @property
