@@ -50,6 +50,21 @@ __vcs_id__ = '$Id$'
 # since, after uploading the first missing segment, we check again.
 RECEIVED_RANGE_PATTERN = re.compile(r'^0-(?P<next_byte_to_upload>\d+)')
 
+def fold_additional_data(url, additional_data):
+    if not additional_data:
+        return url
+    updated_query = url.query + '&' if url.query else ''
+    updated_query += urlencode(additional_data)
+    return ParseResult(
+            scheme=url.scheme,
+            netloc=url.netloc,
+            path=url.path,
+            params=url.params,
+            query= updated_query,
+            fragment=url.fragment
+        )
+
+
 class UploadQueueEntry(object):
     def __init__(self, id, file):
         self.id = id
@@ -99,19 +114,7 @@ class LightweightUploader(Thread):
         self.lock.acquire(True)
         try:
             id = uuid4()
-            url = urlparse(upload_url)
-            if additional_data is not None:
-                updated_query = url.query + '&' if url.query else ''
-                updated_query += urlencode(additional_data)
-                url = ParseResult(
-                        scheme=url.scheme,
-                        netloc=url.netloc,
-                        path=url.path,
-                        params=url.params,
-                        query= updated_query,
-                        fragment=url.fragment
-                    )
-
+            url = fold_additional_data(urlparse(upload_url), additional_data)
             info('Queueing %s for upload to %s, id: %s', file_name, upload_url, id)
             self.upload_queue.append(
                 UploadQueueEntry(
@@ -119,6 +122,7 @@ class LightweightUploader(Thread):
                     UploadableFile(
                         file_name,
                         url,
+                        additional_data=None,
                         http_connection=http_connection,
                         destination_filename=destination_filename,
                         on_complete=on_complete,
@@ -210,6 +214,7 @@ class UploadableFile(object):
                  destination_url,
                  http_connection=None,
                  destination_filename=None,
+                 additional_data=None,
                  file_type=None,
                  chunk_size=None,
                  on_complete=None,
@@ -232,6 +237,8 @@ class UploadableFile(object):
             self.destination_url = destination_url
         else:
             self.destination_url = urlparse(destination_url)
+        if additional_data:
+            self.destination_url = fold_additional_data(self.destination_url, additional_data)
 
     @property
     def http_connection(self):
