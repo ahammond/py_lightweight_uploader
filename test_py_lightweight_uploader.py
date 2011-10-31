@@ -282,13 +282,13 @@ class TestLightweightUploader(PatchedTestCase):
 
     def test_enqueue_upload(self):
         target = py_lightweight_uploader.LightweightUploader()
-        id = target.enqueue_upload('fake_filename', 'fake_uploadurl')
+        id = target.enqueue_upload('fake_filename', 'http://fake_uploadurl/')
         self.assertEquals(1, len(target.upload_queue))
         self.assertEquals(id, target.upload_queue[0].id)
 
     def test_cancel_upload(self):
         target = py_lightweight_uploader.LightweightUploader()
-        id = target.enqueue_upload('fake_filename', 'fake_uploadurl')
+        id = target.enqueue_upload('fake_filename', 'http://fake_uploadurl/')
         target.cancel_upload(id)
         self.assertEquals(0, len(target.upload_queue))
 
